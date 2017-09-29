@@ -1,0 +1,5 @@
+*/*.pyc
+*/*.swp
+aligner/*.out
+aligner/*.a
+.idea/
