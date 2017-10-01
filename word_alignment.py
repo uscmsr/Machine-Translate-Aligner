@@ -36,7 +36,7 @@ class Model:
             print()
 
 class IBM1(Model):
-    opts = {"display":10,"MAX_ITERATION":10000,"criteria":10e-5}
+    opts = {"display":10,"MAX_ITERATION":100,"criteria":1e-5}
     def training(self):
         print("Training with IBM Model 1")
         iter = 0
