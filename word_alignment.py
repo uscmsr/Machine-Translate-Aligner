@@ -6,21 +6,32 @@ from operator import mul
 
 class Model:
     def __init__(self, bitext):
+        sys.stderr.write("Loading corpus")
         self.bitext = bitext
         self.french_set = set()
         self.english_set = set()
-        for (f, e) in self.bitext:
+        self.fe_set = set()
+        for (n,(f, e)) in enumerate(self.bitext):
+            if n % 1e4 == 0:
+                sys.stderr.write(".")
             f.append(None)
             self.french_set.update(f)
             self.english_set.update(e)
-        self.fe_set = {(f, e) for f in self.french_set for e in self.english_set}
+            for f_i in set(f):
+                for e_j in set(e):
+                    self.fe_set.add((f_i,e_j))
         self.t = dict.fromkeys(self.fe_set, 1.0 / len(self.english_set))
+        sys.stderr.write("\n")
 
-    def entropy_loss(self):
+    def entropy_loss(self,eps=1e-5):
         res = 0
         for (f, e) in self.bitext:
             prob = reduce(mul, [sum(self.t[(f_i, e_j)] for f_i in f) for e_j in e])
-            res -= math.log(prob / len(f) ** len(e))
+            try:
+                res -= math.log(prob / (len(f) ** len(e)) + eps)
+            except:
+                #len(f) ** len(e) may overflow
+                res -= math.log(eps)
         return res
 
     def get_alignment(self):
@@ -36,23 +47,23 @@ class Model:
             print()
 
 class IBM1(Model):
-    opts = {"display":10,"MAX_ITERATION":100,"criteria":1e-5}
+    opts = {"display":1,"MAX_ITERATION":10,"criteria":1e-5}
     def training(self):
-        print("Training with IBM Model 1")
-        iter = 0
+        sys.stderr.write("Training with IBM Model 1\n")
+        iter = 1
         loss = 0
         while iter <= self.opts["MAX_ITERATION"]:
             if iter % self.opts["display"] == 0:
                 new_loss = self.entropy_loss()
                 if abs(loss - new_loss) <= self.opts["criteria"]:
-                    print("EM converged at iteration {:04d}\nperplexity: {:.2f}".format(iter, new_loss))
+                    sys.stderr.write("EM converged at iteration {:04d}\nperplexity: {:.2f}\n".format(iter, new_loss))
                     break
-                print("{:04d} iterations completed\nperplexity: {:.2f}".format(iter, new_loss))
+                sys.stderr.write("{:02d} iterations completed\nperplexity: {:.2f}\n".format(iter, new_loss))
                 loss = new_loss
 
             count = dict.fromkeys(self.fe_set, 0.0)
             total = dict.fromkeys(self.french_set, 0.0)
-            for (n, (f_sent, e_sent)) in enumerate(self.bitext):
+            for (f_sent, e_sent) in self.bitext:
                 # normalization factor
                 z = dict.fromkeys(self.english_set, 0)
                 for e in e_sent:
@@ -67,7 +78,7 @@ class IBM1(Model):
                 self.t[(f, e)] = count[(f, e)] / total[f]
             iter += 1
 
-class Bayesian(Model):
+# class Bayesian(Model):
 
 if __name__ == "__main__":
     f_data, e_data, n = open_file()
